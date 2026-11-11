@@ -128,7 +128,7 @@ function cfgView(){
   <label>WhatsApp para receber pedidos (com DDD, só números)</label><input name="whats" value="${esc(c.whats)}" inputmode="numeric" placeholder="5511999999999">
   <label>Chave Pix (exibida ao cliente no checkout)</label><input name="pix" value="${esc(c.pix)}">
   <label>Margem sobre o preço do Mercado Livre (%)</label><input name="markup" type="number" step="0.1" value="${c.markup}">
-  <label>Proxy de importação (opcional, ex.: https://seu-proxy.com/?url=)</label><input name="proxy" value="${esc(c.proxy)}">
+  <label>Endereço do Worker de importação (necessário para links curtos e de afiliado)</label><input name="proxy" value="${esc(c.proxy)}">
   <label>PIN do painel</label><input name="pin" value="${esc(c.pin)}">
   <div class="row" style="margin-top:12px"><button class="pri">Salvar</button></div></form>`;
 }
@@ -136,6 +136,21 @@ function cfgView(){
 async function importar(){
   const url=$('#url').value.trim();
   const m=url.match(/MLB[-_]?(\d{6,})/i);
+  if(db.cfg.proxy&&url){
+    msg={t:'Importando…'};render();
+    const base=db.cfg.proxy.includes('?')?db.cfg.proxy:db.cfg.proxy+'?url=';
+    try{
+      const j=await fetch(base+encodeURIComponent(url)).then(r=>r.json());
+      if(j.error)throw new Error(j.error);
+      const mk=1+(Number(db.cfg.markup)||0)/100;
+      draft={title:j.title||'',orig:j.price,price:Math.round((j.price||0)*mk*100)/100,stock:1,desc:j.description||'',imgs:j.images||[],src:url};
+      msg={t:'Produto importado. Confira os dados e publique.'};
+    }catch(e){
+      draft={title:'',price:0,stock:1,desc:'',imgs:[],src:url};
+      msg={e:1,t:'Falha na importação: '+e.message+' Preencha manualmente abaixo.'};
+    }
+    return render();
+  }
   if(!m){msg={e:1,t:'Não encontrei o código do produto (MLB…) nesse link. Copie o link completo da página do anúncio.'};return render()}
   const id='MLB'+m[1];
   msg={t:'Importando…'};render();
