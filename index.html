@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Minha Loja</title>
+<style>
+:root{--bg:#eef2f6;--card:#fff;--ink:#101820;--mut:#5b6673;--acc:#0f6b5c;--acc2:#0a4d42;--tag:#ffd23f;--line:#d5dce4;--err:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#0e141a;--card:#17202a;--ink:#eef2f6;--mut:#9aa7b5;--acc:#3fc3a8;--acc2:#2aa88e;--line:#2a3643;--err:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+header h1{flex:1;margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em}
+button,.btn{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;border-radius:10px}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
+.pri:hover{background:var(--acc2)}
+.danger{color:var(--err)}
+main{max-width:1000px;margin:0 auto;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.card .im{aspect-ratio:1;background:#fff;display:grid;place-items:center;cursor:pointer}
+.card img{width:100%;height:100%;object-fit:contain}
+.card .b{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card h3{margin:0;font-size:15px;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.price{font-size:20px;font-weight:800;background:var(--tag);color:#101820;align-self:flex-start;padding:1px 9px;border-radius:6px}
+.card .b button{margin-top:auto}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
+.box h2{margin:0 0 10px;font-size:18px}
+label{display:block;font-size:14px;color:var(--mut);margin:10px 0 3px}
+input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+textarea{min-height:90px;resize:vertical}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>input{flex:1;min-width:200px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.msg{padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line);margin-top:10px;font-size:14px}
+.msg.e{color:var(--err);border-color:var(--err)}
+.empty{text-align:center;padding:48px 16px;color:var(--mut)}
+.item{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.item img{width:56px;height:56px;object-fit:contain;background:#fff;border-radius:8px}
+.item .t{flex:1;min-width:0;font-size:14px}
+.thumbs{display:flex;gap:6px;overflow-x:auto;margin-top:8px}
+.thumbs img{width:56px;height:56px;object-fit:contain;background:#fff;border:2px solid var(--line);border-radius:8px;cursor:pointer;flex:none}
+dialog{width:min(560px,94vw);max-height:92vh;border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.big{width:100%;max-height:320px;object-fit:contain;background:#fff;border-radius:10px}
+.desc{white-space:pre-line;font-size:14px;color:var(--mut)}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tabs .on{background:var(--ink);color:var(--bg)}
+@media(prefers-reduced-motion:no-preference){dialog[open]{animation:in .15s ease-out}@keyframes in{from{transform:translateY(8px);opacity:0}}}
+</style>
+</head>
+<body>
+<header id="hd"></header>
+<main id="app"></main>
+<dialog id="dlg"></dialog>
+
+<script>
+const $=s=>document.querySelector(s), K='loja_ml_v1';
+const def={products:[],orders:[],cfg:{name:'Minha Loja',whats:'',pix:'',markup:0,proxy:'',pin:'1234'}};
+let db;try{db=JSON.parse(localStorage.getItem(K))||def}catch(e){db=def}
+let cart=[],view='loja',tab='import',admin=false,draft=null,msg=null;
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}};
+const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const prod=id=>db.products.find(p=>p.id===id);
+const cartTotal=()=>cart.reduce((s,c)=>s+(prod(c.id)?.price||0)*c.q,0);
+const cartQty=()=>cart.reduce((s,c)=>s+c.q,0);
+
+function render(){
+  document.title=db.cfg.name;
+  $('#hd').innerHTML=`<h1>${esc(db.cfg.name)}</h1>`+
+    (view==='loja'?`<button data-a="cart">Carrinho (${cartQty()})</button><button data-a="admin">Painel</button>`
+    :`<button data-a="loja">Ver loja</button>`);
+  $('#app').innerHTML=view==='loja'?loja():painel();
+}
+
+function loja(){
+  if(!db.products.length)return `<div class="empty"><h2>Loja ainda sem produtos</h2><p>Abra o painel e cole um link do Mercado Livre para importar o primeiro produto.</p></div>`;
+  return `<div class="grid">`+db.products.map(p=>`<div class="card"><div class="im" data-a="open" data-id="${p.id}"><img src="${esc(p.imgs[0]||'')}" alt="${esc(p.title)}" loading="lazy"></div><div class="b"><h3>${esc(p.title)}</h3><span class="price">${brl(p.price)}</span><button class="pri" data-a="add" data-id="${p.id}">Adicionar ao carrinho</button></div></div>`).join('')+`</div>`;
+}
+
+function painel(){
+  const t=(k,l)=>`<button data-a="tab" data-id="${k}" class="${tab===k?'on':''}">${l}</button>`;
+  let h=`<div class="tabs">${t('import','Importar')}${t('prods','Produtos ('+db.products.length+')')}${t('orders','Pedidos ('+db.orders.length+')')}${t('cfg','Configurações')}</div>`;
+  if(tab==='import')h+=importView();
+  if(tab==='prods')h+=prodsView();
+  if(tab==='orders')h+=ordersView();
+  if(tab==='cfg')h+=cfgView();
+  return h;
+}
+
+function importView(){
+  let h=`<div class="box"><h2>Importar do Mercado Livre</h2><div class="row"><input id="url" type="url" placeholder="Cole o link do produto" inputmode="url"><button class="pri" data-a="imp">Importar</button></div>`;
+  if(msg)h+=`<div class="msg ${msg.e?'e':''}">${esc(msg.t)}</div>`;
+  h+=`</div>`;
+  if(draft){
+    h+=`<div class="box"><h2>Revise antes de publicar</h2>
+    ${draft.imgs[0]?`<img class="big" src="${esc(draft.imgs[0])}" alt="">`:''}
+    <label>Título</label><input id="d-t" value="${esc(draft.title)}">
+    <div class="two"><div><label>Seu preço de venda (R$)</label><input id="d-p" type="number" step="0.01" value="${draft.price}"></div>
+    <div><label>Estoque</label><input id="d-s" type="number" value="${draft.stock}"></div></div>
+    ${draft.orig?`<p class="desc">Preço no Mercado Livre: ${brl(draft.orig)}. Margem aplicada: ${db.cfg.markup}%.</p>`:''}
+    <label>Descrição</label><textarea id="d-d">${esc(draft.desc)}</textarea>
+    <label>Fotos (uma URL por linha)</label><textarea id="d-i">${esc(draft.imgs.join('\n'))}</textarea>
+    <div class="row" style="margin-top:12px"><button class="pri" data-a="pub">Publicar na loja</button><button data-a="cancel">Descartar</button></div></div>`;
+  }
+  return h;
+}
+
+function prodsView(){
+  if(!db.products.length)return `<div class="empty">Nenhum produto publicado.</div>`;
+  return `<div class="box">`+db.products.map(p=>`<div class="item"><img src="${esc(p.imgs[0]||'')}" alt=""><div class="t"><b>${esc(p.title)}</b><br>${brl(p.price)} · estoque ${p.stock}</div><button data-a="edit" data-id="${p.id}">Editar</button><button class="danger" data-a="del" data-id="${p.id}">Excluir</button></div>`).join('')+`</div>`;
+}
+
+function ordersView(){
+  if(!db.orders.length)return `<div class="empty">Nenhum pedido ainda.</div>`;
+  return db.orders.slice().reverse().map(o=>`<div class="box"><b>${esc(o.name)}</b> · ${brl(o.total)} · ${new Date(o.at).toLocaleString('pt-BR')}<br><span class="desc">${esc(o.phone)} · ${esc(o.addr)}</span>
+  <div class="desc">${o.items.map(i=>`${i.q}× ${esc(i.title)}`).join('\n')}</div>
+  <label>Status</label><select data-st="${o.id}">${['Aguardando pagamento','Pago','Enviado','Entregue','Cancelado'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}</select></div>`).join('');
+}
+
+function cfgView(){
+  const c=db.cfg;
+  return `<form class="box" id="cfg"><h2>Configurações</h2>
+  <label>Nome da loja</label><input name="name" value="${esc(c.name)}">
+  <label>WhatsApp para receber pedidos (com DDD, só números)</label><input name="whats" value="${esc(c.whats)}" inputmode="numeric" placeholder="5511999999999">
+  <label>Chave Pix (exibida ao cliente no checkout)</label><input name="pix" value="${esc(c.pix)}">
+  <label>Margem sobre o preço do Mercado Livre (%)</label><input name="markup" type="number" step="0.1" value="${c.markup}">
+  <label>Proxy de importação (opcional, ex.: https://seu-proxy.com/?url=)</label><input name="proxy" value="${esc(c.proxy)}">
+  <label>PIN do painel</label><input name="pin" value="${esc(c.pin)}">
+  <div class="row" style="margin-top:12px"><button class="pri">Salvar</button></div></form>`;
+}
+
+async function importar(){
+  const url=$('#url').value.trim();
+  const m=url.match(/MLB[-_]?(\d{6,})/i);
+  if(!m){msg={e:1,t:'Não encontrei o código do produto (MLB…) nesse link. Copie o link completo da página do anúncio.'};return render()}
+  const id='MLB'+m[1];
+  msg={t:'Importando…'};render();
+  const get=u=>fetch(db.cfg.proxy?db.cfg.proxy+encodeURIComponent(u):u).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()});
+  try{
+    const it=await get('https://api.mercadolibre.com/items/'+id);
+    const ds=await get('https://api.mercadolibre.com/items/'+id+'/description').catch(()=>({plain_text:''}));
+    const mk=1+(Number(db.cfg.markup)||0)/100;
+    draft={title:it.title,orig:it.price,price:Math.round(it.price*mk*100)/100,stock:it.available_quantity||1,
+      desc:ds.plain_text||'',imgs:(it.pictures||[]).map(p=>p.secure_url||p.url),src:url};
+    msg={t:'Produto importado. Confira os dados e publique.'};
+  }catch(e){
+    draft={title:'',price:0,stock:1,desc:'',imgs:[],src:url};
+    msg={e:1,t:'A importação automática falhou ('+e.message+'). O Mercado Livre pode bloquear chamadas diretas do navegador: informe um proxy em Configurações ou preencha os dados abaixo manualmente.'};
+  }
+  render();
+}
+
+function openProd(id){
+  const p=prod(id);if(!p)return;
+  $('#dlg').innerHTML=`<img class="big" id="mi" src="${esc(p.imgs[0]||'')}" alt="">
+  <div class="thumbs">${p.imgs.map(u=>`<img src="${esc(u)}" data-a="img" alt="">`).join('')}</div>
+  <h2 style="margin:12px 0 4px">${esc(p.title)}</h2><span class="price">${brl(p.price)}</span>
+  <p class="desc">${esc(p.desc)}</p>
+  <div class="row"><button class="pri" data-a="add" data-id="${id}">Adicionar ao carrinho</button><button data-a="close">Fechar</button></div>`;
+  $('#dlg').showModal();
+}
+
+function openCart(){
+  const items=cart.filter(c=>prod(c.id));
+  $('#dlg').innerHTML=`<h2 style="margin-top:0">Carrinho</h2>`+
+  (items.length?items.map(c=>{const p=prod(c.id);return `<div class="item"><img src="${esc(p.imgs[0]||'')}" alt=""><div class="t">${esc(p.title)}<br><b>${brl(p.price*c.q)}</b></div><button data-a="qm" data-id="${c.id}" aria-label="Diminuir">−</button><b>${c.q}</b><button data-a="qp" data-id="${c.id}" aria-label="Aumentar">+</button></div>`}).join('')+
+  `<p style="font-size:20px"><b>Total: ${brl(cartTotal())}</b></p><div class="row"><button class="pri" data-a="checkout">Finalizar compra</button><button data-a="close">Continuar comprando</button></div>`
+  :`<div class="empty">Seu carrinho está vazio.</div><button data-a="close">Fechar</button>`);
+  if(!$('#dlg').open)$('#dlg').showModal();
+}
+
+function checkout(){
+  $('#dlg').innerHTML=`<form id="co"><h2 style="margin-top:0">Seus dados</h2>
+  <label>Nome completo</label><input name="name" required autocomplete="name">
+  <label>WhatsApp</label><input name="phone" required inputmode="tel" autocomplete="tel">
+  <label>Endereço de entrega completo</label><textarea name="addr" required></textarea>
+  <p><b>Total: ${brl(cartTotal())}</b><br><span class="desc">Pagamento por Pix: a chave aparece após confirmar o pedido.</span></p>
+  <div class="row"><button class="pri">Confirmar pedido</button><button type="button" data-a="cart">Voltar</button></div></form>`;
+}
+
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  const a=b.dataset.a,id=b.dataset.id;
+  if(a==='loja'){view='loja';render()}
+  else if(a==='admin'){if(admin||prompt('PIN do painel')===db.cfg.pin){admin=true;view='admin';render()}}
+  else if(a==='tab'){tab=id;msg=null;render()}
+  else if(a==='imp')importar();
+  else if(a==='cancel'){draft=null;msg=null;render()}
+  else if(a==='pub'){
+    const imgs=$('#d-i').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const p={id:draft.editId||uid(),title:$('#d-t').value.trim(),price:Number($('#d-p').value)||0,stock:Number($('#d-s').value)||0,desc:$('#d-d').value.trim(),imgs,src:draft.src};
+    if(!p.title||!p.price){msg={e:1,t:'Informe título e preço.'};return render()}
+    const i=db.products.findIndex(x=>x.id===p.id);i>=0?db.products[i]=p:db.products.push(p);
+    save();draft=null;msg={t:'Produto publicado.'};render();
+  }
+  else if(a==='edit'){const p=prod(id);draft={...p,editId:id};tab='import';msg=null;render()}
+  else if(a==='del'){if(confirm('Excluir este produto?')){db.products=db.products.filter(p=>p.id!==id);save();render()}}
+  else if(a==='open')openProd(id);
+  else if(a==='img')$('#mi').src=b.src;
+  else if(a==='close')$('#dlg').close();
+  else if(a==='add'){const c=cart.find(x=>x.id===id);const p=prod(id);if(c){if(c.q<p.stock)c.q++}else if(p.stock>0)cart.push({id,q:1});render();$('#dlg').open?openCart():0}
+  else if(a==='cart')openCart();
+  else if(a==='qp'){const c=cart.find(x=>x.id===id);if(c&&c.q<prod(id).stock)c.q++;openCart();render()}
+  else if(a==='qm'){const c=cart.find(x=>x.id===id);if(c){c.q--;if(c.q<1)cart=cart.filter(x=>x!==c)}openCart();render()}
+  else if(a==='checkout')checkout();
+});
+
+document.addEventListener('change',e=>{
+  const id=e.target.dataset.st;if(!id)return;
+  db.orders.find(o=>o.id===id).status=e.target.value;save();
+});
+
+document.addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target,d=Object.fromEntries(new FormData(f));
+  if(f.id==='cfg'){db.cfg={...db.cfg,...d,markup:Number(d.markup)||0};save();msg=null;render();alert('Configurações salvas.')}
+  if(f.id==='co'){
+    const items=cart.filter(c=>prod(c.id)).map(c=>({id:c.id,q:c.q,title:prod(c.id).title}));
+    const total=cartTotal();
+    items.forEach(i=>{prod(i.id).stock-=i.q});
+    const o={id:uid(),at:Date.now(),name:d.name,phone:d.phone,addr:d.addr,items,total,status:'Aguardando pagamento'};
+    db.orders.push(o);save();cart=[];render();
+    const txt=`Novo pedido de ${o.name}\n`+items.map(i=>`${i.q}x ${i.title}`).join('\n')+`\nTotal: ${brl(total)}\nEntrega: ${o.addr}`;
+    const wa=db.cfg.whats?`https://wa.me/${db.cfg.whats.replace(/\D/g,'')}?text=${encodeURIComponent(txt)}`:'';
+    $('#dlg').innerHTML=`<h2 style="margin-top:0">Pedido recebido</h2><p>Total: <b>${brl(total)}</b></p>
+    ${db.cfg.pix?`<p>Pague por Pix com a chave:</p><input readonly value="${esc(db.cfg.pix)}" onclick="this.select()">`:'<p>O vendedor entrará em contato com a forma de pagamento.</p>'}
+    <div class="row" style="margin-top:12px">${wa?`<a class="btn pri" href="${wa}" target="_blank" rel="noopener" style="text-decoration:none">Enviar comprovante no WhatsApp</a>`:''}<button data-a="close">Fechar</button></div>`;
+  }
+});
+render();
+</script>
+</body>
+</html>
